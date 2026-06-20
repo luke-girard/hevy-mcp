@@ -125,8 +125,13 @@ def _parse_exercise(e: dict, idx: int) -> Exercise:
     )
 
 
-def _build_exercise_payload(exercises: list[dict]) -> list[dict]:
-    """Convert user-provided exercise dicts to Hevy API format."""
+def _build_exercise_payload(exercises: list[dict], include_rpe: bool = True) -> list[dict]:
+    """Convert user-provided exercise dicts to Hevy API format.
+
+    include_rpe must be False for routines — Hevy's routine schema has no
+    `rpe` field (it doesn't apply to a planned-but-not-yet-performed set),
+    and including it causes a 400 Bad Request.
+    """
     result = []
     for ex in exercises:
         entry = {
@@ -136,16 +141,16 @@ def _build_exercise_payload(exercises: list[dict]) -> list[dict]:
             "sets": [],
         }
         for s in ex.get("sets", []):
-            entry["sets"].append(
-                {
-                    "type": s.get("type", "normal"),
-                    "weight_kg": s.get("weight_kg"),
-                    "reps": s.get("reps"),
-                    "distance_meters": s.get("distance_meters"),
-                    "duration_seconds": s.get("duration_seconds"),
-                    "rpe": s.get("rpe"),
-                }
-            )
+            set_entry = {
+                "type": s.get("type", "normal"),
+                "weight_kg": s.get("weight_kg"),
+                "reps": s.get("reps"),
+                "distance_meters": s.get("distance_meters"),
+                "duration_seconds": s.get("duration_seconds"),
+            }
+            if include_rpe:
+                set_entry["rpe"] = s.get("rpe")
+            entry["sets"].append(set_entry)
         result.append(entry)
     return result
 
@@ -357,7 +362,7 @@ async def create_routine(
         "routine": {
             "title": title,
             "folder_id": folder_id,
-            "exercises": _build_exercise_payload(exercises),
+            "exercises": _build_exercise_payload(exercises, include_rpe=False),
         }
     }
     try:
@@ -386,7 +391,7 @@ async def update_routine(
         "routine": {
             "title": title,
             "folder_id": folder_id,
-            "exercises": _build_exercise_payload(exercises),
+            "exercises": _build_exercise_payload(exercises, include_rpe=False),
         }
     }
     try:
