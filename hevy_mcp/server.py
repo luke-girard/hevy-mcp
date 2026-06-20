@@ -250,29 +250,30 @@ async def search_exercises(
     page: int = Field(default=1, description="Page number (1-indexed)"),
 ) -> ExerciseTemplateList:
     """Search exercise templates by name."""
-    data = await hevy_client.get(
+    # Pull the full exercise template catalog across all pages (Hevy allows
+    # pageSize up to 100), then filter locally — the old version only
+    # checked whichever single page was requested, missing most results.
+    all_templates = await hevy_client.get_paginated(
         "/exercise_templates",
-        params={"page": page, "pageSize": 10},
+        params={"pageSize": 100},
     )
-    # Filter locally since Hevy API doesn't have a search param
-    templates = []
     query_lower = query.lower()
-    for t in data.get("exercise_templates", []):
-        if query_lower in t.get("title", "").lower():
-            templates.append(
-                ExerciseTemplate(
-                    id=t["id"],
-                    title=t["title"],
-                    type=t.get("type", ""),
-                    primary_muscle_group=t.get("primary_muscle_group", ""),
-                    secondary_muscle_groups=t.get("secondary_muscle_groups", []),
-                    is_custom=t.get("is_custom", False),
-                )
-            )
+    matches = [t for t in all_templates if query_lower in t.get("title", "").lower()]
+    templates = [
+        ExerciseTemplate(
+            id=t["id"],
+            title=t["title"],
+            type=t.get("type", ""),
+            primary_muscle_group=t.get("primary_muscle_group", ""),
+            secondary_muscle_groups=t.get("secondary_muscle_groups", []),
+            is_custom=t.get("is_custom", False),
+        )
+        for t in matches
+    ]
     return ExerciseTemplateList(
         templates=templates,
-        page=data.get("page", page),
-        page_count=data.get("page_count", 1),
+        page=1,
+        page_count=1,
     )
 
 
@@ -307,7 +308,8 @@ async def create_workout(
     }
     try:
         data = await hevy_client.post("/workouts", json=payload)
-        workout_id = data.get("id", "unknown")
+        w = data.get("workout", data)
+        workout_id = w.get("id", "unknown")
         return ActionResult(success=True, message=f"Workout created: {workout_id}")
     except Exception as exc:
         return ActionResult(success=False, message=str(exc))
@@ -367,7 +369,8 @@ async def create_routine(
     }
     try:
         data = await hevy_client.post("/routines", json=payload)
-        routine_id = data.get("id", "unknown")
+        r = data.get("routine", data)
+        routine_id = r.get("id", "unknown")
         return ActionResult(success=True, message=f"Routine created: {routine_id}")
     except Exception as exc:
         return ActionResult(success=False, message=str(exc))
