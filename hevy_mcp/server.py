@@ -155,6 +155,26 @@ def _build_exercise_payload(exercises: list[dict], include_rpe: bool = True) -> 
     return result
 
 
+def _extract_id(data, wrapper_key: str) -> str:
+    """Best-effort extraction of an `id` field from a create/update response.
+
+    Hevy's actual responses don't reliably match its published OpenAPI spec —
+    sometimes a flat object, sometimes wrapped in {wrapper_key: {...}},
+    sometimes a top-level list. This never raises; worst case it returns
+    "unknown" so a response-shape quirk can't be mistaken for a failed
+    write (the write already succeeded by the time this runs).
+    """
+    if isinstance(data, list):
+        data = data[0] if data else {}
+    if isinstance(data, dict):
+        inner = data.get(wrapper_key, data)
+        if isinstance(inner, list):
+            inner = inner[0] if inner else {}
+        if isinstance(inner, dict):
+            return inner.get("id", "unknown")
+    return "unknown"
+
+
 # ---------------------------------------------------------------------------
 # Health check
 # ---------------------------------------------------------------------------
@@ -308,8 +328,7 @@ async def create_workout(
     }
     try:
         data = await hevy_client.post("/workouts", json=payload)
-        w = data.get("workout", data)
-        workout_id = w.get("id", "unknown")
+        workout_id = _extract_id(data, "workout")
         return ActionResult(success=True, message=f"Workout created: {workout_id}")
     except Exception as exc:
         return ActionResult(success=False, message=str(exc))
@@ -369,8 +388,7 @@ async def create_routine(
     }
     try:
         data = await hevy_client.post("/routines", json=payload)
-        r = data.get("routine", data)
-        routine_id = r.get("id", "unknown")
+        routine_id = _extract_id(data, "routine")
         return ActionResult(success=True, message=f"Routine created: {routine_id}")
     except Exception as exc:
         return ActionResult(success=False, message=str(exc))
