@@ -30,7 +30,7 @@ mcp = FastMCP("Hevy MCP", host="0.0.0.0", port=PORT)
 class ExerciseSet(BaseModel):
     index: int
     set_type: str = Field(description="e.g. normal, warmup, failure, dropset")
-    weight_kg: float | None = None
+    weight_lbs: float | None = None
     reps: int | None = None
     distance_meters: float | None = None
     duration_seconds: int | None = None
@@ -106,10 +106,12 @@ class ActionResult(BaseModel):
 
 
 def _parse_set(s: dict, idx: int) -> ExerciseSet:
+    weight_kg = s.get("weight_kg")
+    weight_lbs = round(weight_kg * 2.20462, 2) if weight_kg is not None else None
     return ExerciseSet(
         index=s.get("index", idx),
         set_type=s.get("set_type", s.get("type", "normal")),
-        weight_kg=s.get("weight_kg"),
+        weight_lbs=weight_lbs,
         reps=s.get("reps"),
         distance_meters=s.get("distance_meters"),
         duration_seconds=s.get("duration_seconds"),
@@ -147,10 +149,9 @@ def _build_exercise_payload(exercises: list[dict], include_rpe: bool = True) -> 
         if ex.get("rest_seconds") is not None:
             entry["rest_seconds"] = ex["rest_seconds"]
         for s in ex.get("sets", []):
-            # Accept weight in lbs or kg; lbs takes priority if both provided
-            weight_kg = s.get("weight_kg")
-            if s.get("weight_lbs") is not None:
-                weight_kg = round(s["weight_lbs"] / 2.20462, 4)
+            # Always accept lbs; convert to kg for Hevy API
+            weight_lbs = s.get("weight_lbs")
+            weight_kg = round(weight_lbs / 2.20462, 4) if weight_lbs is not None else s.get("weight_kg")
             set_entry = {
                 "type": s.get("type", "normal"),
                 "weight_kg": weight_kg,
@@ -323,9 +324,9 @@ async def create_workout(
     exercises: list[dict] = Field(
         description=(
             "List of exercises. Each dict needs: exercise_template_id (str), "
-            "sets (list of dicts with type, weight_kg OR weight_lbs, reps, etc.), "
+            "sets (list of dicts with type, weight_lbs (float), reps, etc.), "
             "optional: notes (str), superset_id (int), rest_seconds (int). "
-            "Use weight_lbs if the user specifies pounds — it is auto-converted to kg."
+            "Always use weight_lbs — the server converts to kg automatically. Never use weight_kg."
         )
     ),
 ) -> ActionResult:
@@ -386,9 +387,9 @@ async def create_routine(
     exercises: list[dict] = Field(
         description=(
             "List of exercises. Each dict needs: exercise_template_id (str), "
-            "sets (list of dicts with type, weight_kg OR weight_lbs, reps, etc.), "
+            "sets (list of dicts with type, weight_lbs (float), reps, etc.), "
             "optional: notes (str), superset_id (int), rest_seconds (int). "
-            "Use weight_lbs if the user specifies pounds — it is auto-converted to kg."
+            "Always use weight_lbs — the server converts to kg automatically. Never use weight_kg."
         )
     ),
 ) -> ActionResult:
