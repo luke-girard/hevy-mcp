@@ -34,6 +34,7 @@ class ExerciseSet(BaseModel):
     reps: int | None = None
     distance_meters: float | None = None
     duration_seconds: int | None = None
+    rest_seconds: int | None = None
     rpe: float | None = None
 
 
@@ -111,6 +112,7 @@ def _parse_set(s: dict, idx: int) -> ExerciseSet:
         reps=s.get("reps"),
         distance_meters=s.get("distance_meters"),
         duration_seconds=s.get("duration_seconds"),
+        rest_seconds=s.get("rest_seconds"),
         rpe=s.get("rpe"),
     )
 
@@ -147,6 +149,7 @@ def _build_exercise_payload(exercises: list[dict], include_rpe: bool = True) -> 
                 "reps": s.get("reps"),
                 "distance_meters": s.get("distance_meters"),
                 "duration_seconds": s.get("duration_seconds"),
+                "rest_seconds": s.get("rest_seconds"),
             }
             if include_rpe:
                 set_entry["rpe"] = s.get("rpe")
