@@ -149,8 +149,9 @@ def _build_exercise_payload(exercises: list[dict], include_rpe: bool = True) -> 
                 "reps": s.get("reps"),
                 "distance_meters": s.get("distance_meters"),
                 "duration_seconds": s.get("duration_seconds"),
-                "rest_seconds": s.get("rest_seconds"),
             }
+            if s.get("rest_seconds") is not None:
+                set_entry["rest_seconds"] = s["rest_seconds"]
             if include_rpe:
                 set_entry["rpe"] = s.get("rpe")
             entry["sets"].append(set_entry)
