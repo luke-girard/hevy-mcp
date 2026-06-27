@@ -43,6 +43,7 @@ class Exercise(BaseModel):
     title: str
     exercise_template_id: str
     notes: str = ""
+    rest_seconds: int | None = None
     sets: list[ExerciseSet] = []
 
 
@@ -123,6 +124,7 @@ def _parse_exercise(e: dict, idx: int) -> Exercise:
         title=e.get("title", ""),
         exercise_template_id=e.get("exercise_template_id", ""),
         notes=e.get("notes", ""),
+        rest_seconds=e.get("rest_seconds"),
         sets=[_parse_set(s, i) for i, s in enumerate(e.get("sets", []))],
     )
 
@@ -142,6 +144,8 @@ def _build_exercise_payload(exercises: list[dict], include_rpe: bool = True) -> 
             "notes": ex.get("notes", ""),
             "sets": [],
         }
+        if ex.get("rest_seconds") is not None:
+            entry["rest_seconds"] = ex["rest_seconds"]
         for s in ex.get("sets", []):
             set_entry = {
                 "type": s.get("type", "normal"),
